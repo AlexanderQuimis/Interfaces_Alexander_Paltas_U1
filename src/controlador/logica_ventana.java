@@ -8,7 +8,6 @@ import java.awt.event.ItemListener;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.swing.DefaultListModel;
 import javax.swing.JComboBox;
 import javax.swing.JList;
@@ -17,7 +16,9 @@ import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-
+import javax.swing.table.DefaultTableModel;
+import java.io.FileWriter;
+import javax.swing.SwingWorker;
 import vista.ventana;
 import modelo.*;
 
@@ -40,10 +41,11 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 	    this.delegado.btn_eliminar.addActionListener(this);
 	    this.delegado.btn_modificar.addActionListener(this);
 	    // Registra los ListSelectionListener para la lista de contactos.
-	    this.delegado.lst_contactos.addListSelectionListener(this);
+            this.delegado.tabla.getSelectionModel().addListSelectionListener(this);
 	    // Registra los ItemListener para el JComboBox de categoría y el JCheckBox de favoritos.
 	    this.delegado.cmb_categoria.addItemListener(this);
 	    this.delegado.chb_favorito.addItemListener(this);
+            this.delegado.btn_exportar.addActionListener(this);
 	}
 
 	// Método privado para inicializar las variables con los valores ingresados en la GUI.
@@ -59,18 +61,24 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 		 try {
 		        // Lee los contactos almacenados utilizando una instancia de personaDAO.
 		        contactos = new personaDAO(new persona()).leerArchivo();
-		        DefaultListModel modelo = new DefaultListModel();
-		        // Agrega cada contacto al modelo de la lista de contactos de la GUI.
-		        for (persona contacto : contactos) {
-		            modelo.addElement(contacto.formatoLista());
-		        }
-		        // Establece el modelo actualizado en la lista de contactos de la GUI.
-		        delegado.lst_contactos.setModel(modelo);
+		        DefaultTableModel modelo = delegado.modeloTabla;
+		        modelo.setRowCount(0); // limpiar tabla
+		        
+                        for (persona contacto : contactos) {
+                            modelo.addRow(new Object[]{
+                                contacto.getNombre(),
+                                contacto.getTelefono(),
+                                contacto.getEmail(),
+                                contacto.getCategoria(),
+                                contacto.isFavorito()
+                        });
+                    }
 		    } catch (IOException e) {
 		        // Muestra un mensaje de error si ocurre una excepción al cargar los contactos.
 		        JOptionPane.showMessageDialog(delegado, "Existen problemas al cargar todos los contactos");
 		    }
 	}
+
 
 	// Método privado para limpiar los campos de entrada en la GUI y reiniciar variables.
 	private void limpiarCampos() {
@@ -120,23 +128,73 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 	        // Lugar para implementar la funcionalidad de eliminar un contacto.
 	    } else if (e.getSource() == delegado.btn_modificar) {
 	        // Lugar para implementar la funcionalidad de modificar un contacto.
-	    }
-	}
+	    }else if (e.getSource() == delegado.btn_exportar) {
+            exportarCSV();
+        }
+}
 
 	// Método que maneja los eventos de selección en la lista de contactos.
-	@Override
-	public void valueChanged(ListSelectionEvent e) {
-		// Obtiene el índice del elemento seleccionado en la lista de contactos.
-	    int index = delegado.lst_contactos.getSelectedIndex();
-	    // Verifica si se ha seleccionado un índice válido en la lista.
-	    if (index != -1) {
-	        // Si el índice es mayor que cero (no se seleccionó la primera fila),
-	        // carga los detalles del contacto seleccionado.
-	        if (index > 0) {
-	            cargarContacto(index);
-	        }
-	    } 
-	}
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    int fila = delegado.tabla.getSelectedRow();
+
+                    if (fila != -1) {
+                        cargarContacto(fila);
+                    }
+                }
+            }
+            
+            
+        private void exportarCSV() {
+               if (contactos == null || contactos.isEmpty()) {
+                JOptionPane.showMessageDialog(delegado, "No hay contactos para exportar");
+                return;
+            }   
+            SwingWorker<Void, Integer> worker = new SwingWorker<Void, Integer>() {
+                @Override
+                protected Void doInBackground() throws Exception {
+
+                    FileWriter writer = new FileWriter("contactos.csv");
+
+                    int total = contactos.size();
+
+                    delegado.progressBar.setMaximum(total);
+                    delegado.progressBar.setValue(0);
+
+                    writer.write("Nombre,Telefono,Email,Categoria,Favorito\n");
+
+                    for (int i = 0; i < total; i++) {
+                        persona p = contactos.get(i);
+
+                        writer.write(
+                            p.getNombre() + "," +
+                            p.getTelefono() + "," +
+                            p.getEmail() + "," +
+                            p.getCategoria() + "," +
+                            p.isFavorito() + "\n"
+                        );
+
+                        publish(i + 1); // envía progreso
+                    }
+
+                    writer.close();
+                    return null;
+                }
+                @Override
+                protected void process(List<Integer> chunks) {
+                    int valor = chunks.get(chunks.size() - 1);
+                    delegado.progressBar.setValue(valor);
+                }
+
+                @Override
+                protected void done() {
+                    JOptionPane.showMessageDialog(delegado, "Exportación completada");
+                }
+            };
+
+            worker.execute();
+        }
 
 	// Método privado para cargar los datos del contacto seleccionado en los campos de la GUI.
 	private void cargarContacto(int index) {
