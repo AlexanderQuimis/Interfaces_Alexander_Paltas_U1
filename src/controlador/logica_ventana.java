@@ -212,16 +212,19 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 
 	// Método que maneja los eventos de cambio de estado en los componentes cmb_categoria y chb_favorito.
 	@Override
-	public void itemStateChanged(ItemEvent e) {
-		// Verifica si el evento proviene del JComboBox de categoría.
-	    if (e.getSource() == delegado.cmb_categoria) {
-	        // Obtiene el elemento seleccionado en el JComboBox y lo convierte en una cadena.
-	        categoria = delegado.cmb_categoria.getSelectedItem().toString();
-	        // Actualiza la categoría seleccionada en la variable "categoria".
-	    } else if (e.getSource() == delegado.chb_favorito) {
-	        // Verifica si el evento proviene del JCheckBox de favorito.
-	        favorito = delegado.chb_favorito.isSelected();
-	        // Obtiene el estado seleccionado del JCheckBox y actualiza el estado de favorito en la variable "favorito".
-	    }
-	}
+        public void itemStateChanged(ItemEvent e) {
+
+            if (e.getSource() == delegado.cmb_categoria) {
+
+                Object selected = delegado.cmb_categoria.getSelectedItem();
+
+                if (selected == null) return;
+
+                categoria = selected.toString(); // 🔥 aquí guardas bien la variable
+
+            } else if (e.getSource() == delegado.chb_favorito) {
+
+                favorito = delegado.chb_favorito.isSelected();
+            }
+        }
 }
